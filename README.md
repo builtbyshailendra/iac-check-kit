@@ -41,3 +41,9 @@ Every sample passes `terraform validate`. The flawed ones are valid Terraform; t
 **Built:** the second rule. It reads all three ways the AWS provider lets you write ingress: `ingress` blocks inside a security group, `aws_security_group_rule`, and `aws_vpc_security_group_ingress_rule`. A rule fails when it allows TCP (or every protocol) on a port range that includes 22, from a CIDR with a `/0` prefix, so both `0.0.0.0/0` and `::/0` count.
 
 **Learned:** the easy version only looks for `from_port = 22` and `"0.0.0.0/0"` side by side. That misses protocol `-1` (every port), a range like 20-25, TCP written as `"6"`, IPv6, and an open CIDR hidden behind a variable. Each of those now has its own test.
+
+### Step 5: JSON report and command line
+
+**Built:** `python -m iac_check check <folder>` runs every rule and prints a short report. `--json FILE` also writes the same result as JSON, with pass, fail and "can't tell" counts per rule. The exit code is 1 when anything fails, so CI can gate on it. `--strict` makes "can't tell" fail too.
+
+**What broke:** a test expected the bastion finding on line 31. I had copied that number from the output before the line fix in Step 3. The file shows it on line 32, so the test was wrong, not the code.
