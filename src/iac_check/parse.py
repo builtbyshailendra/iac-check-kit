@@ -31,6 +31,10 @@ _RESOURCE_LINE = re.compile(r'^[ \t]*resource\s+"([^"]+)"\s+"([^"]+)"', re.MULTI
 _NOT_FOLLOWABLE = {"each", "count", "module", "data", "path", "terraform", "self"}
 
 
+class ParseError(ValueError):
+    """A .tf file that python-hcl2 can't read."""
+
+
 @dataclass(frozen=True)
 class Ref:
     """A reference to another resource, such as aws_s3_bucket.logs.id."""
@@ -129,7 +133,11 @@ def load_module(path: str | Path) -> Module:
     module = Module(path=path)
     for file in files:
         text = file.read_text(encoding="utf-8")
-        data = hcl2.loads(text, serialization_options=_OPTIONS)
+        try:
+            data = hcl2.loads(text, serialization_options=_OPTIONS)
+        except Exception as error:  # the parser raises several lark error types
+            first_line = str(error).strip().splitlines()[0] if str(error).strip() else type(error).__name__
+            raise ParseError(f"Can't parse {file.name}: {first_line}") from error
         lines = {
             (m.group(1), m.group(2)): text.count("\n", 0, m.start()) + 1
             for m in _RESOURCE_LINE.finditer(text)

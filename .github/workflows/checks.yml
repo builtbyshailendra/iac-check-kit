@@ -38,7 +38,9 @@ jobs:
       - name: grade the samples
         working-directory: src
         run: |
-          python -m iac_check check ../samples/good --json ../reports/good.json
+          for sample in good good_alternative; do
+            python -m iac_check check "../samples/$sample" --json "../reports/$sample.json"
+          done
           # The flawed samples must fail (exit 1). "|| code=$?" keeps bash -e from
           # stopping here, and a crash (exit 2) or a pass (exit 0) fails the job.
           for sample in flawed_public_bucket flawed_open_ssh; do

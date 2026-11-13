@@ -95,3 +95,15 @@ def test_cli_json_to_stdout(capsys):
 def test_cli_missing_folder(tmp_path, capsys):
     assert main(["check", str(tmp_path)]) == 2
     assert "No .tf files" in capsys.readouterr().err
+
+
+def test_same_safe_setup_written_differently_also_passes():
+    # Account-level block, separate rule resources, a /32 in a local, an IPv6 range.
+    report = build_report(SAMPLES / "good_alternative")
+    assert report["summary"] == {"pass": 5, "fail": 0, "unknown": 0}
+
+
+def test_cli_unreadable_terraform_is_exit_2_not_a_failed_check(tmp_path, capsys):
+    (tmp_path / "main.tf").write_text('resource "aws_s3_bucket" "b" {\n  bucket = \n', encoding="utf-8")
+    assert main(["check", str(tmp_path)]) == 2
+    assert "Can't parse main.tf" in capsys.readouterr().err

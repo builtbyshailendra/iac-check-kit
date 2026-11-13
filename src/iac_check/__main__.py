@@ -6,7 +6,7 @@ import json
 import sys
 from pathlib import Path
 
-from iac_check.parse import load_module
+from iac_check.parse import ParseError, load_module
 from iac_check.report import build_report, exit_code, to_text
 
 
@@ -50,7 +50,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.command == "list":
             return cmd_list(args.path)
         return cmd_check(args.path, args.json, args.strict, args.quiet)
-    except FileNotFoundError as error:
+    except (FileNotFoundError, ParseError) as error:
+        # Exit 2, not 1: a file that can't be read is not the same as a failed check.
         print(f"iac_check: {error}", file=sys.stderr)
         return 2
 
