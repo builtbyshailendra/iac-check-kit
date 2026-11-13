@@ -47,3 +47,9 @@ Every sample passes `terraform validate`. The flawed ones are valid Terraform; t
 **Built:** `python -m iac_check check <folder>` runs every rule and prints a short report. `--json FILE` also writes the same result as JSON, with pass, fail and "can't tell" counts per rule. The exit code is 1 when anything fails, so CI can gate on it. `--strict` makes "can't tell" fail too.
 
 **What broke:** a test expected the bastion finding on line 31. I had copied that number from the output before the line fix in Step 3. The file shows it on line 32, so the test was wrong, not the code.
+
+### Step 6: CI
+
+**Built:** a GitHub Actions workflow with two jobs. One runs the tests. The other installs Terraform 1.17.1, runs `terraform validate` on every sample, then grades them: the good sample must pass, and each flawed sample must fail with exit code 1. The JSON reports are uploaded as a build artifact.
+
+**Decision:** in a GitHub Actions `run` step, bash stops at the first failing command. A flawed sample is supposed to fail, so the step catches the exit code with `|| code=$?` and checks it is exactly 1. A crash (exit 2) or an unexpected pass (exit 0) both fail the job.

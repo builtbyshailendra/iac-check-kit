@@ -1,0 +1,56 @@
+name: checks
+on: [push, pull_request]
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - run: pytest -q
+
+  samples:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.17.1"
+          terraform_wrapper: false
+
+      - name: terraform validate every sample
+        run: |
+          for dir in samples/*/; do
+            echo "::group::$dir"
+            terraform -chdir="$dir" init -backend=false -input=false -no-color
+            terraform -chdir="$dir" validate -no-color
+            echo "::endgroup::"
+          done
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+
+      - name: grade the samples
+        working-directory: src
+        run: |
+          python -m iac_check check ../samples/good --json ../reports/good.json
+          # The flawed samples must fail (exit 1). "|| code=$?" keeps bash -e from
+          # stopping here, and a crash (exit 2) or a pass (exit 0) fails the job.
+          for sample in flawed_public_bucket flawed_open_ssh; do
+            code=0
+            python -m iac_check check "../samples/$sample" --json "../reports/$sample.json" || code=$?
+            if [ "$code" -ne 1 ]; then
+              echo "::error::$sample should fail the checks with exit 1, got $code"
+              exit 1
+            fi
+          done
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: reports
+          path: reports/
