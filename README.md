@@ -23,3 +23,9 @@ Every sample passes `terraform validate`. The flawed ones are valid Terraform; t
 ### Step 1: samples
 
 **Built:** three small stacks, one good and two flawed, each a valid root module pinned to the AWS provider 6.x.
+
+### Step 2: read the Terraform
+
+**Built:** a loader that reads every `.tf` file in a folder with `python-hcl2`, plus a `list` command.
+
+**Learned:** python-hcl2 version 8 keeps the quotes around strings by default, so a bucket name comes back as `"\"demo-app-logs\""`. One serialization option strips them. References like `var.office_cidr` come back as text such as `${var.office_cidr}`, so the loader follows variable defaults and locals itself, and marks anything it can't follow without running Terraform as unknown instead of guessing.
