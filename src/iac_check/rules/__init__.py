@@ -37,6 +37,6 @@ class Rule:
 
 def all_rules() -> list[Rule]:
     # Imported here so each rule module can import Finding from this package.
-    from iac_check.rules import s3_public_access
+    from iac_check.rules import open_ssh, s3_public_access
 
-    return [s3_public_access.RULE]
+    return [s3_public_access.RULE, open_ssh.RULE]

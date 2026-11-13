@@ -35,3 +35,9 @@ Every sample passes `terraform validate`. The flawed ones are valid Terraform; t
 **Built:** a small rule framework (each rule returns one finding per resource: pass, fail or unknown, with a reason) and the first rule. A bucket passes when all four public access settings are on. They can come from the bucket's own block, an account-level block, or both, because AWS applies whichever is stricter. A setting that's left out counts as off, since that's the provider default.
 
 **What broke:** findings pointed one line above the resource. The line search used `^\s*resource`, and `\s*` also matches a newline, so it started on the blank line before the block. Changing it to `^[ \t]*` fixed it, and a test now checks the line.
+
+### Step 4: rule 2, no SSH open to the whole internet
+
+**Built:** the second rule. It reads all three ways the AWS provider lets you write ingress: `ingress` blocks inside a security group, `aws_security_group_rule`, and `aws_vpc_security_group_ingress_rule`. A rule fails when it allows TCP (or every protocol) on a port range that includes 22, from a CIDR with a `/0` prefix, so both `0.0.0.0/0` and `::/0` count.
+
+**Learned:** the easy version only looks for `from_port = 22` and `"0.0.0.0/0"` side by side. That misses protocol `-1` (every port), a range like 20-25, TCP written as `"6"`, IPv6, and an open CIDR hidden behind a variable. Each of those now has its own test.
