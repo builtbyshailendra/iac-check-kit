@@ -21,7 +21,12 @@ _OPTIONS = SerializationOptions(
     with_comments=False, explicit_blocks=False, strip_string_quotes=True
 )
 _EXPRESSION = re.compile(r"^\$\{(.+)\}$", re.DOTALL)
-_REFERENCE = re.compile(r"^([A-Za-z_][\w-]*)\.([A-Za-z_]\w*)(?:\.([A-Za-z_]\w*))?$")
+_REFERENCE = re.compile(
+    r"^([A-Za-z_][\w-]*)\.([A-Za-z_][\w-]*)(\[[^\]]*\])?(?:\.([A-Za-z_]\w*))?$"
+)
+# python-hcl2 has no line numbers in this mode, so find each block in the text.
+# [ \t]* rather than \s* at the start, or the match swallows the blank line above.
+_RESOURCE_LINE = re.compile(r'^[ \t]*resource\s+"([^"]+)"\s+"([^"]+)"', re.MULTILINE)
 # Things that look like references but can't be followed from the text alone.
 _NOT_FOLLOWABLE = {"each", "count", "module", "data", "path", "terraform", "self"}
 
@@ -52,6 +57,7 @@ class Resource:
     name: str
     attrs: dict[str, Any]
     file: str
+    line: int = 0
 
     @property
     def address(self) -> str:
@@ -96,7 +102,9 @@ class Module:
         ref = _REFERENCE.match(expr)
         if not ref:
             return Unknown(expr)
-        head, name, attr = ref.groups()
+        head, name, index, attr = ref.groups()
+        if index and head in ("var", "local"):
+            return Unknown(expr)
         if head == "var":
             variable = self.variables.get(name)
             if variable is None or "default" not in variable:
@@ -120,12 +128,17 @@ def load_module(path: str | Path) -> Module:
 
     module = Module(path=path)
     for file in files:
-        with open(file, encoding="utf-8") as handle:
-            data = hcl2.load(handle, serialization_options=_OPTIONS)
+        text = file.read_text(encoding="utf-8")
+        data = hcl2.loads(text, serialization_options=_OPTIONS)
+        lines = {
+            (m.group(1), m.group(2)): text.count("\n", 0, m.start()) + 1
+            for m in _RESOURCE_LINE.finditer(text)
+        }
         for block in data.get("resource", []):
             for type_, by_name in block.items():
                 for name, attrs in by_name.items():
-                    module.resources.append(Resource(type_, name, attrs, file.name))
+                    line = lines.get((type_, name), 0)
+                    module.resources.append(Resource(type_, name, attrs, file.name, line))
         for block in data.get("variable", []):
             for name, attrs in block.items():
                 module.variables[name] = attrs

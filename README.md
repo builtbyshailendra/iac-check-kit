@@ -29,3 +29,9 @@ Every sample passes `terraform validate`. The flawed ones are valid Terraform; t
 **Built:** a loader that reads every `.tf` file in a folder with `python-hcl2`, plus a `list` command.
 
 **Learned:** python-hcl2 version 8 keeps the quotes around strings by default, so a bucket name comes back as `"\"demo-app-logs\""`. One serialization option strips them. References like `var.office_cidr` come back as text such as `${var.office_cidr}`, so the loader follows variable defaults and locals itself, and marks anything it can't follow without running Terraform as unknown instead of guessing.
+
+### Step 3: rule 1, buckets block public access
+
+**Built:** a small rule framework (each rule returns one finding per resource: pass, fail or unknown, with a reason) and the first rule. A bucket passes when all four public access settings are on. They can come from the bucket's own block, an account-level block, or both, because AWS applies whichever is stricter. A setting that's left out counts as off, since that's the provider default.
+
+**What broke:** findings pointed one line above the resource. The line search used `^\s*resource`, and `\s*` also matches a newline, so it started on the blank line before the block. Changing it to `^[ \t]*` fixed it, and a test now checks the line.
